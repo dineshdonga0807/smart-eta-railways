@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart ETA - Indian Railways Delay Prediction</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for in-browser JSX parsing -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              950: '#060c1a',
+              900: '#0a1226',
+              850: '#0f1b38',
+              800: '#14254b',
+              700: '#1e3568',
+              600: '#2b4a8a',
+            },
+            teal: {
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .glow-teal {
+      box-shadow: 0 0 25px -5px rgba(20, 184, 166, 0.35);
+    }
+    .glow-navy {
+      box-shadow: 0 10px 30px -10px rgba(6, 12, 26, 0.8);
+    }
+  </style>
+</head>
+<body class="bg-navy-950 text-slate-100 min-h-screen antialiased flex flex-col">
+  <div id="root" class="flex-grow"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const TRAINS = [
+      { no: "12238", name: "Begampura Express", route: "Varanasi → Jammu", distance: 1260 },
+      { no: "12002", name: "Shatabdi Express", route: "New Delhi → Rani Kamlapati", distance: 707 },
+      { no: "12301", name: "Rajdhani Express", route: "Howrah → New Delhi", distance: 1450 },
+      { no: "12229", name: "Lucknow Mail", route: "Lucknow → New Delhi", distance: 491 },
+      { no: "12377", name: "Garib Rath Express", route: "Kolkata → New Delhi", distance: 1318 },
+      { no: "12604", name: "Chennai Express", route: "Mumbai → Chennai", distance: 1284 },
+      { no: "12633", name: "Kanyakumari Express", route: "Chennai Egmore → Kanyakumari", distance: 742 },
+      { no: "15029", name: "Gorakhpur-Pune Weekly Express", route: "Gorakhpur → Pune", distance: 1754 },
+      { no: "15906", name: "Vivek Express", route: "Dibrugarh → Kanyakumari", distance: 4198 },
+      { no: "22832", name: "Yesvantpur–Howrah Express", route: "Yesvantpur Jn → Howrah", distance: 1915 },
+    ];
+
+    function App() {
+      const [selectedTrain, setSelectedTrain] = useState("12238");
+      const [overrideDelay, setOverrideDelay] = useState("");
+      const [isOverridden, setIsOverridden] = useState(false);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+      const [etaData, setEtaData] = useState(null);
+
+      const fetchEta = async (trainNo, customDelay = null) => {
+        setLoading(true);
+        setError(null);
+        try {
+          let url = `/eta/${trainNo}`;
+          if (customDelay !== null && customDelay !== "" && !isNaN(customDelay)) {
+            url += `?current_delay=${encodeURIComponent(customDelay)}`;
+          }
+          const res = await fetch(url);
+          if (!res.ok) {
+            throw new Error(`Error ${res.status}: Failed to fetch ETA`);
+          }
+          const data = await res.json();
+          setEtaData(data);
+          if (customDelay === null) {
+            setOverrideDelay(data.features_used.current_delay);
+          }
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Initial fetch on train change
+      useEffect(() => {
+        setIsOverridden(false);
+        fetchEta(selectedTrain);
+      }, [selectedTrain]);
+
+      const handleTrainChange = (e) => {
+        setSelectedTrain(e.target.value);
+      };
+
+      const handleDelayChange = (val) => {
+        setOverrideDelay(val);
+        setIsOverridden(true);
+        if (val !== "" && !isNaN(val)) {
+          fetchEta(selectedTrain, parseFloat(val));
+        }
+      };
+
+      const handleResetOverride = () => {
+        setIsOverridden(false);
+        fetchEta(selectedTrain, null);
+      };
+
+      const activeTrainInfo = TRAINS.find(t => t.no === selectedTrain) || {};
+
+      // Calculate severity styling based on predicted delay
+      const getSeverity = (minutes) => {
+        if (minutes <= 15) {
+          return { label: "Low Delay / Near On-Time", color: "text-teal-400", bg: "bg-teal-950/60 border-teal-500/40" };
+        } else if (minutes <= 45) {
+          return { label: "Moderate Delay", color: "text-amber-400", bg: "bg-amber-950/60 border-amber-500/40" };
+        } else {
+          return { label: "Significant Delay", color: "text-rose-400", bg: "bg-rose-950/60 border-rose-500/40" };
+        }
+      };
+
+      const severity = etaData ? getSeverity(etaData.predicted_delay_minutes) : null;
+
+      return (
+        <div class="min-h-screen bg-navy-950 text-slate-100 flex flex-col justify-between">
+          {/* Navbar */}
+          <header class="border-b border-navy-800/80 bg-navy-900/90 backdrop-blur-md sticky top-0 z-50">
+            <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-teal-400 flex items-center justify-center text-navy-950 font-black text-xl shadow-lg shadow-teal-500/20">
+                  🚆
+                </div>
+                <div>
+                  <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    Smart ETA
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30 font-medium">
+                      ML Live
+                    </span>
+                  </h1>
+                  <p class="text-xs text-slate-400">Indian Railways Delay Forecasting Engine</p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-4 text-xs text-slate-400">
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-navy-850 border border-navy-800">
+                  <span class="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
+                  <span>Linear Regression Pipeline</span>
+                </div>
+                <div class="px-3 py-1.5 rounded-lg bg-navy-850 border border-navy-800">
+                  <span class="text-slate-400">Test MAE:</span> <strong class="text-teal-400">22.90 min</strong>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Dashboard Content */}
+          <main class="max-w-6xl mx-auto px-6 py-8 flex-grow w-full">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              
+              {/* Left Column: Interactive Controls */}
+              <div class="lg:col-span-5 space-y-6">
+                
+                {/* Train Selector Card */}
+                <div class="bg-navy-900/95 border border-navy-800 rounded-2xl p-6 glow-navy shadow-xl">
+                  <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-teal-400 flex items-center gap-2">
+                      <span class="text-base">📍</span> Select Train
+                    </h2>
+                    <span class="text-xs text-slate-400">10 Real Trains Available</span>
+                  </div>
+
+                  <label class="block text-xs font-medium text-slate-300 mb-2">Train Number & Name</label>
+                  <div class="relative">
+                    <select
+                      value={selectedTrain}
+                      onChange={handleTrainChange}
+                      class="w-full bg-navy-950 border border-navy-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 transition-all cursor-pointer appearance-none"
+                    >
+                      {TRAINS.map((t) => (
+                        <option key={t.no} value={t.no} class="bg-navy-950 text-white py-2">
+                          {t.no} — {t.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-teal-400">
+                      ▼
+                    </div>
+                  </div>
+
+                  {/* Route details banner */}
+                  <div class="mt-4 p-3.5 rounded-xl bg-navy-950/70 border border-navy-800/80 flex items-center justify-between text-xs">
+                    <div>
+                      <span class="text-slate-400 block">Route</span>
+                      <strong class="text-white text-sm">{activeTrainInfo.route}</strong>
+                    </div>
+                    <div class="text-right">
+                      <span class="text-slate-400 block">Track Distance</span>
+                      <strong class="text-teal-400 font-mono text-sm">{activeTrainInfo.distance} km</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Real-time Simulation / Override Card */}
+                <div class="bg-navy-900/95 border border-navy-800 rounded-2xl p-6 glow-navy shadow-xl">
+                  <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-teal-400 flex items-center gap-2">
+                      <span class="text-base">⚡</span> Real-Time Simulator
+                    </h2>
+                    {isOverridden ? (
+                      <span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
+                        User Overridden
+                      </span>
+                    ) : (
+                      <span class="text-[11px] px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                        Default Proxy
+                      </span>
+                    )}
+                  </div>
+
+                  <p class="text-xs text-slate-400 mb-4">
+                    Simulate real-time tracker updates by modifying the current observed delay. The model will recompute the final arrival delay instantly.
+                  </p>
+
+                  <div class="space-y-4">
+                    <div>
+                      <div class="flex justify-between items-center mb-1.5">
+                        <label class="text-xs font-medium text-slate-300">
+                          Current Observed Delay (minutes):
+                        </label>
+                        <span class="font-mono text-teal-400 font-bold text-sm">
+                          {overrideDelay || 0} min
+                        </span>
+                      </div>
+                      
+                      <div class="flex items-center gap-3">
+                        <input
+                          type="number"
+                          min="0"
+                          max="600"
+                          value={overrideDelay}
+                          onChange={(e) => handleDelayChange(e.target.value)}
+                          placeholder="0"
+                          class="w-28 bg-navy-950 border border-navy-700 text-white rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 text-center"
+                        />
+                        <input
+                          type="range"
+                          min="0"
+                          max="240"
+                          step="5"
+                          value={overrideDelay || 0}
+                          onChange={(e) => handleDelayChange(e.target.value)}
+                          class="flex-grow h-2 bg-navy-950 rounded-lg appearance-none cursor-pointer accent-teal-400"
+                        />
+                      </div>
+                    </div>
+
+                    {isOverridden && (
+                      <button
+                        onClick={handleResetOverride}
+                        class="w-full text-xs py-2 px-3 rounded-xl bg-navy-800 hover:bg-navy-700 text-teal-300 border border-navy-700 transition flex items-center justify-center gap-1.5"
+                      >
+                        ↺ Reset to Recorded Train Delay
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* API Status Badge */}
+                <div class="p-4 rounded-2xl bg-navy-900/60 border border-navy-800/80 text-xs flex items-center justify-between text-slate-400">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+                    <span>Endpoint:</span>
+                    <code class="text-teal-300 font-mono bg-navy-950 px-2 py-0.5 rounded border border-navy-800">
+                      /eta/{selectedTrain}{isOverridden ? `?current_delay=${overrideDelay}` : ''}
+                    </code>
+                  </div>
+                  {loading && <span class="text-teal-400 animate-pulse">Calculating...</span>}
+                </div>
+
+              </div>
+
+              {/* Right Column: Prediction Results & Features */}
+              <div class="lg:col-span-7 space-y-6">
+
+                {/* Primary Prediction Card */}
+                <div class="bg-gradient-to-br from-navy-900 via-navy-850 to-navy-900 border border-teal-500/30 rounded-3xl p-8 glow-teal shadow-2xl relative overflow-hidden">
+                  <div class="absolute -right-12 -top-12 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-navy-800 pb-6 mb-6">
+                    <div>
+                      <span class="text-xs uppercase tracking-widest text-teal-400 font-bold block mb-1">
+                        Predicted Delay Forecast
+                      </span>
+                      <h2 class="text-2xl font-bold text-white">
+                        {etaData?.train_name || activeTrainInfo.name}
+                      </h2>
+                      <p class="text-xs text-slate-400 font-mono mt-0.5">Train #{selectedTrain}</p>
+                    </div>
+
+                    {severity && (
+                      <div class={`px-4 py-2 rounded-xl border text-xs font-semibold ${severity.bg} ${severity.color} self-start sm:self-auto`}>
+                        {severity.label}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Main Metric Callout */}
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 my-2">
+                    <div class="bg-navy-950/80 rounded-2xl p-6 border border-navy-800 flex flex-col justify-center">
+                      <span class="text-xs text-slate-400 font-medium mb-1">Estimated Final Delay</span>
+                      <div class="flex items-baseline gap-2">
+                        <span class="text-5xl font-extrabold tracking-tight text-teal-400 font-mono">
+                          {loading ? "--" : `+${etaData?.predicted_delay_minutes ?? 0}`}
+                        </span>
+                        <span class="text-slate-400 font-semibold text-lg">min</span>
+                      </div>
+                      <p class="text-[11px] text-slate-400 mt-2">
+                        Linear regression estimated arrival deviation
+                      </p>
+                    </div>
+
+                    <div class="bg-navy-950/80 rounded-2xl p-6 border border-navy-800 flex flex-col justify-center">
+                      <span class="text-xs text-slate-400 font-medium mb-1">Model Inference Engine</span>
+                      <div class="text-lg font-bold text-white flex items-center gap-2 mt-1">
+                        <span class="text-teal-400">✓</span> Linear Regression
+                      </div>
+                      <div class="mt-3 text-[11px] text-slate-400 space-y-1 font-mono">
+                        <div class="flex justify-between">
+                          <span>Model Artifact:</span>
+                          <span class="text-teal-300">linear_regression_model.joblib</span>
+                        </div>
+                        <div class="flex justify-between">
+                          <span>Test MAE:</span>
+                          <span class="text-white">22.90 min (vs XGB 28.91)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Features Used Breakdown Card */}
+                <div class="bg-navy-900/95 border border-navy-800 rounded-2xl p-6 glow-navy shadow-xl">
+                  <div class="flex items-center justify-between mb-5">
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-teal-400 flex items-center gap-2">
+                      <span>📊</span> Input Features Feed
+                    </h3>
+                    <span class="text-xs text-slate-400">Active Inputs to Regression Pipeline</span>
+                  </div>
+
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    
+                    {/* Feature 1: Current Delay */}
+                    <div class="bg-navy-950 rounded-xl p-4 border border-navy-800">
+                      <span class="text-[11px] text-slate-400 block mb-1">Current Delay</span>
+                      <strong class="text-lg font-mono text-teal-400">
+                        {etaData?.features_used?.current_delay ?? "--"} min
+                      </strong>
+                      <span class="text-[10px] text-slate-400 block mt-1">
+                        {isOverridden ? "⚡ User Override" : "📂 Last Trip Proxy"}
+                      </span>
+                    </div>
+
+                    {/* Feature 2: Historical Average */}
+                    <div class="bg-navy-950 rounded-xl p-4 border border-navy-800">
+                      <span class="text-[11px] text-slate-400 block mb-1">Historical Avg</span>
+                      <strong class="text-lg font-mono text-teal-400">
+                        {etaData?.features_used?.historical_avg_delay_this_train ?? "--"} min
+                      </strong>
+                      <span class="text-[10px] text-slate-400 block mt-1">10-Year Train Baseline</span>
+                    </div>
+
+                    {/* Feature 3: Season */}
+                    <div class="bg-navy-950 rounded-xl p-4 border border-navy-800">
+                      <span class="text-[11px] text-slate-400 block mb-1">Season</span>
+                      <strong class="text-lg text-white">
+                        {etaData?.features_used?.season ?? "Winter"}
+                      </strong>
+                      <span class="text-[10px] text-teal-500/80 block mt-1">❄️ Winter Peak</span>
+                    </div>
+
+                    {/* Feature 4: Frequency */}
+                    <div class="bg-navy-950 rounded-xl p-4 border border-navy-800">
+                      <span class="text-[11px] text-slate-400 block mb-1">Frequency</span>
+                      <strong class="text-lg text-white">
+                        {etaData?.features_used?.run_frequency ?? "Daily"}
+                      </strong>
+                      <span class="text-[10px] text-slate-400 block mt-1">Schedule Pattern</span>
+                    </div>
+
+                  </div>
+
+                  {/* Formula explanation */}
+                  <div class="mt-5 pt-4 border-t border-navy-800/80 text-xs text-slate-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                      <span class="text-slate-300 font-medium">Regression Formula: </span>
+                      <code class="text-teal-300 font-mono">
+                        delay ≈ 8.05 + 0.211×(curr) + 0.644×(hist_avg)
+                      </code>
+                    </div>
+                    <span class="text-[11px] text-slate-400">One-Hot Encoded Categories</span>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </main>
+
+          {/* Footer */}
+          <footer class="border-t border-navy-800/80 py-4 text-center text-xs text-slate-400">
+            Smart ETA • Real-Time Indian Railways Delay Prediction System • Powered by FastAPI & Scikit-Learn
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

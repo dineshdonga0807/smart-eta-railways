@@ -1,0 +1,31 @@
+{
+  "model_type": "XGBRegressor",
+  "features": [
+    "current_delay",
+    "historical_avg_delay_this_train",
+    "season",
+    "run_frequency"
+  ],
+  "categorical_features": [
+    "season",
+    "run_frequency"
+  ],
+  "categories": {
+    "season": [
+      "Winter"
+    ],
+    "run_frequency": [
+      "Daliy",
+      "Tri-Weekly",
+      "Weekly"
+    ]
+  },
+  "target": "delay_minutes_total",
+  "train_rows": 80,
+  "test_rows": 20,
+  "test_metrics": {
+    "mae": 28.908,
+    "rmse": 39.5477,
+    "r2": -0.6087
+  }
+}

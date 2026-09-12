@@ -1,0 +1,13 @@
+{
+  "linear_regression": {
+    "mae": 22.9038,
+    "rmse": 30.3611,
+    "r2": 0.0519
+  },
+  "xgboost": {
+    "mae": 28.908,
+    "rmse": 39.5477,
+    "r2": -0.6087
+  },
+  "better_model": "Linear Regression"
+}

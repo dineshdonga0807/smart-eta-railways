@@ -1,0 +1,12 @@
+__pycache__
+*.py[cod]
+*$py.class
+*.log
+.git
+.gitignore
+.env
+*.png
+take_screenshot.py
+.venv
+env/
+venv/

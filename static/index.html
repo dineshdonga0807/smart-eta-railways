@@ -1,58 +1,882 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart ETA - Indian Railways Delay Prediction</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>SMART ETA // Operations & Delay Forecast Console</title>
+  
+  <!-- Typography matching the reference font roles:
+       Brand -> Space Grotesk (Morhefa role)
+       UI    -> Plus Jakarta Sans (Givonic role)
+       Num   -> Unica One (Auralis Numeral role)
+       Pixel -> Silkscreen (Silkscreen role) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Silkscreen&family=Space+Grotesk:wght@500;600;700&family=Unica+One&display=swap" rel="stylesheet" />
+
   <!-- React 18 & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <!-- Babel for in-browser JSX parsing -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            navy: {
-              950: '#060c1a',
-              900: '#0a1226',
-              850: '#0f1b38',
-              800: '#14254b',
-              700: '#1e3568',
-              600: '#2b4a8a',
-            },
-            teal: {
-              400: '#2dd4bf',
-              500: '#14b8a6',
-              600: '#0d9488',
-              700: '#0f766e',
-            }
-          }
-        }
+
+  <style>
+    /* ----------------------------------------------------------------- tokens */
+    :root {
+      color-scheme: light;
+      --theme-shift: 0;
+
+      /* Reference palette — exact tokens */
+      --bg: #f4f4f4;
+      --text: #000000;
+      --accent: #ff5900;
+      --surface: #ffffff;
+      --muted: #5b5b5b;
+      --line: #d8d8d8;
+
+      /* derived neutrals */
+      --bg-sunken: #ececec;
+      --line-strong: #bdbdbd;
+      --text-soft: #2b2b2b;
+      --accent-ink: #992f00;
+      --accent-wash: #fff1ea;
+      --text-muted: var(--muted);
+
+      /* status hues */
+      --sev-critical: #b3261e;
+      --sev-major: #8a4b00;
+      --sev-minor: #6b5300;
+      --sev-info: #1a4f8a;
+      --ok: #1a6b32;
+      --warn: #8a4b00;
+      --bad: #b3261e;
+      --unknown: #5b5b5b;
+
+      /* washes & scrims */
+      --wash-1: rgba(0, 0, 0, 0.04);
+      --wash-2: rgba(0, 0, 0, 0.06);
+      --wash-3: rgba(0, 0, 0, 0.12);
+      --scrim: rgba(0, 0, 0, 0.55);
+
+      --on-accent: #ffffff;
+      --accent-edge: #d96b18;
+
+      /* status chip pairs */
+      --tag-ok-bg: #e8f5e9;
+      --tag-ok-fg: #2e7d32;
+      --tag-warn-bg: #fff3e0;
+      --tag-warn-fg: #e65100;
+      --tag-bad-bg: #fce4ec;
+      --tag-bad-fg: #c62828;
+      --tag-info-bg: #e3f2fd;
+      --tag-info-fg: #1565c0;
+      --tag-neutral-bg: #f5f5f5;
+      --tag-neutral-fg: #616161;
+
+      /* radii */
+      --r-surface: 18px;
+      --r-control: 12px;
+      --r-pill: 999px;
+
+      /* spacing, 4px base */
+      --sp-1: 4px;
+      --sp-2: 8px;
+      --sp-3: 12px;
+      --sp-4: 16px;
+      --sp-5: 20px;
+      --sp-6: 24px;
+      --sp-8: 32px;
+      --sp-10: 40px;
+      --sp-12: 48px;
+
+      /* layout */
+      --max-w: 1400px;
+      --pad-x: clamp(16px, 3.5vw, 36px);
+      --nav-h: 64px;
+
+      /* typography */
+      --font-ui: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --font-brand: "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+      --font-num: "Unica One", "Plus Jakarta Sans", monospace;
+      --font-pixel: "Silkscreen", ui-monospace, monospace;
+
+      --fs-display: clamp(1.75rem, 3.5vw, 2.75rem);
+      --fs-h1: clamp(1.375rem, 2.2vw, 1.875rem);
+      --fs-h2: 1.1875rem;
+      --fs-h3: 1rem;
+      --fs-body: 0.9375rem;
+      --fs-sm: 0.875rem;
+      --fs-xs: 0.8125rem;
+      --fs-micro: 0.75rem;
+
+      /* elevation */
+      --sh-1: 0 1px 2px rgba(40, 30, 20, 0.05);
+      --sh-2: 0 6px 18px rgba(40, 30, 20, 0.07);
+      --sh-3: 0 18px 44px rgba(40, 30, 20, 0.12);
+
+      /* motion */
+      --t-fast: 120ms;
+      --t-hover: 160ms;
+      --t-base: 240ms;
+      --t-slow: 420ms;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    /* ----------------------------------------------------------- dark theme */
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --theme-shift: 1;
+
+      --bg: #0e0e10;
+      --text: #f4f4f5;
+      --surface: #171719;
+      --muted: #a1a1a8;
+      --line: #2a2a2e;
+
+      --bg-sunken: #08080a;
+      --line-strong: #3f3f46;
+      --text-soft: #d6d6da;
+      --accent-ink: #ff8f5e;
+      --accent-wash: #2a1305;
+      --text-muted: var(--muted);
+
+      --sev-critical: #ff6b61;
+      --sev-major: #e3a44f;
+      --sev-minor: #d8c45c;
+      --sev-info: #78b4f0;
+      --ok: #5fcb8b;
+      --warn: #e3a44f;
+      --bad: #ff6b61;
+      --unknown: #a1a1a8;
+
+      --wash-1: rgba(255, 255, 255, 0.05);
+      --wash-2: rgba(255, 255, 255, 0.08);
+      --wash-3: rgba(255, 255, 255, 0.14);
+      --scrim: rgba(0, 0, 0, 0.66);
+
+      --tag-ok-bg: #10301d;
+      --tag-ok-fg: #6ddb99;
+      --tag-warn-bg: #33220a;
+      --tag-warn-fg: #f0b165;
+      --tag-bad-bg: #38151a;
+      --tag-bad-fg: #ff8a7f;
+      --tag-info-bg: #12263d;
+      --tag-info-fg: #82bcf5;
+      --tag-neutral-bg: #202024;
+      --tag-neutral-fg: #b4b4bb;
+
+      --sh-1: 0 1px 3px rgba(0, 0, 0, 0.4);
+      --sh-2: 0 8px 24px rgba(0, 0, 0, 0.55);
+      --sh-3: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+
+    /* ------------------------------------------------------------- resets */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-ui);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      font-size: var(--fs-body);
+      transition: background-color var(--t-base) var(--ease-out), color var(--t-base) var(--ease-out);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ------------------------------------------------------- shell styles */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      height: var(--nav-h);
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      transition: border-color var(--t-base) var(--ease-out), background-color var(--t-base) var(--ease-out);
+    }
+    .navInner {
+      width: 100%;
+      max-width: var(--max-w);
+      margin-inline: auto;
+      padding-inline: var(--pad-x);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-4);
+    }
+    .wordmark {
+      font-family: var(--font-brand);
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .brandDot {
+      width: 9px;
+      height: 9px;
+      border-radius: var(--r-pill);
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      flex: none;
+    }
+
+    .navLinks {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    @media (max-width: 820px) {
+      .navLinks {
+        display: none;
       }
     }
-  </script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
+    .navLink {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 14px;
+      border-radius: var(--r-control);
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color var(--t-hover) var(--ease-out), background-color var(--t-hover) var(--ease-out);
     }
-    .glow-teal {
-      box-shadow: 0 0 25px -5px rgba(20, 184, 166, 0.35);
+    .navLink:hover {
+      color: var(--text);
+      background: var(--wash-1);
     }
-    .glow-navy {
-      box-shadow: 0 10px 30px -10px rgba(6, 12, 26, 0.8);
+    .navLink[data-active="true"] {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .navLink[data-active="true"]::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: -1px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+
+    /* Right cluster */
+    .navRight {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Status Pill / Live Badge */
+    .livePill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--r-pill);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      font-size: var(--fs-micro);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .liveDot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--ok);
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Theme Toggle */
+    .themeBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: var(--r-control);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color var(--t-hover) var(--ease-out), transform var(--t-fast) var(--ease-out), background-color var(--t-base) var(--ease-out);
+    }
+    .themeBtn:hover {
+      border-color: var(--accent);
+    }
+    .themeBtn:active {
+      transform: scale(0.95);
+    }
+
+    /* Operations Status Rail */
+    .statusRail {
+      background: var(--bg-sunken);
+      border-bottom: 1px solid var(--line);
+      padding: 7px 0;
+      font-size: var(--fs-micro);
+      font-weight: 500;
+      color: var(--muted);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .statusRailInner {
+      max-width: var(--max-w);
+      margin-inline: auto;
+      padding-inline: var(--pad-x);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .railItem {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .railKey {
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .railVal {
+      font-family: var(--font-pixel);
+      color: var(--text);
+      font-size: 11px;
+    }
+
+    /* ---------------------------------------------------- layout & content */
+    .mainContainer {
+      width: 100%;
+      max-width: var(--max-w);
+      margin-inline: auto;
+      padding-inline: var(--pad-x);
+      padding-top: var(--sp-6);
+      padding-bottom: var(--sp-12);
+      flex: 1;
+    }
+
+    .pageHeader {
+      margin-bottom: var(--sp-6);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--sp-4);
+      padding-bottom: var(--sp-4);
+      border-bottom: 1px solid var(--line);
+    }
+    .pageTitleBlock h1 {
+      font-family: var(--font-brand);
+      font-size: var(--fs-h1);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: var(--text);
+    }
+    .pageSubtitle {
+      font-size: var(--fs-sm);
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .dashboardGrid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: var(--sp-6);
+      align-items: start;
+    }
+    @media (max-width: 1040px) {
+      .dashboardGrid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* --------------------------------------------------- surface cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-surface);
+      padding: var(--sp-6);
+      box-shadow: var(--sh-1);
+      transition: border-color var(--t-hover) var(--ease-out), box-shadow var(--t-hover) var(--ease-out);
+    }
+    .card:hover {
+      box-shadow: var(--sh-2);
+    }
+
+    .cardHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--sp-5);
+      gap: 12px;
+    }
+    .cardTitle {
+      font-size: var(--fs-micro);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ----------------------------------------------------------- controls */
+    .controlLabel {
+      display: block;
+      font-size: var(--fs-xs);
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .controlHint {
+      font-size: var(--fs-micro);
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .selectWrapper {
+      position: relative;
+      margin-bottom: var(--sp-4);
+    }
+    .customSelect {
+      width: 100%;
+      height: 44px;
+      background: var(--bg-sunken);
+      border: 1px solid var(--line);
+      border-radius: var(--r-control);
+      padding: 0 36px 0 14px;
+      font-family: inherit;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      appearance: none;
+      outline: none;
+      transition: border-color var(--t-fast) var(--ease-out), background-color var(--t-fast) var(--ease-out);
+    }
+    .customSelect:focus, .customSelect:hover {
+      border-color: var(--accent);
+      background: var(--surface);
+    }
+    .selectArrow {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* Route metadata plate */
+    .routePlate {
+      background: var(--bg-sunken);
+      border: 1px solid var(--line);
+      border-radius: var(--r-control);
+      padding: 12px 14px;
+      margin-bottom: var(--sp-5);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: var(--fs-xs);
+    }
+    .routeVal {
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 2px;
+    }
+
+    /* Real-Time Delay Slider Input */
+    .simulatorField {
+      margin-top: var(--sp-4);
+      background: var(--bg-sunken);
+      border: 1px solid var(--line);
+      border-radius: var(--r-control);
+      padding: 16px;
+    }
+    .simHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .simValLarge {
+      font-family: var(--font-num);
+      font-size: 26px;
+      color: var(--accent-ink);
+      letter-spacing: 0.02em;
+    }
+
+    .sliderRow {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .numInput {
+      width: 72px;
+      height: 38px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-control);
+      font-family: var(--font-num);
+      font-size: 17px;
+      font-weight: 600;
+      text-align: center;
+      color: var(--text);
+      outline: none;
+      transition: border-color var(--t-fast) var(--ease-out);
+    }
+    .numInput:focus {
+      border-color: var(--accent);
+    }
+
+    .rangeSlider {
+      flex: 1;
+      height: 6px;
+      background: var(--line);
+      border-radius: 3px;
+      appearance: none;
+      outline: none;
+      cursor: pointer;
+    }
+    .rangeSlider::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--accent);
+      border: 2px solid var(--surface);
+      box-shadow: var(--sh-1);
+      cursor: pointer;
+      transition: transform var(--t-fast) var(--ease-out);
+    }
+    .rangeSlider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .btnReset {
+      margin-top: 10px;
+      width: 100%;
+      height: 32px;
+      background: transparent;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--r-control);
+      font-size: var(--fs-micro);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all var(--t-fast) var(--ease-out);
+    }
+    .btnReset:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-wash);
+    }
+
+    /* ---------------------------------------------------- metric tiles */
+    .metricGrid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-6);
+    }
+    @media (max-width: 900px) {
+      .metricGrid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 520px) {
+      .metricGrid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .metricTile {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-surface);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 110px;
+      box-shadow: var(--sh-1);
+      transition: transform var(--t-hover) var(--ease-out), box-shadow var(--t-hover) var(--ease-out);
+    }
+    .metricTile:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--sh-2);
+    }
+    .metricTileLabel {
+      font-size: var(--fs-micro);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .metricTileVal {
+      font-family: var(--font-num);
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin: 6px 0;
+    }
+    .metricTileUnit {
+      font-family: var(--font-ui);
+      font-size: var(--fs-sm);
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .metricTileFoot {
+      font-size: var(--fs-micro);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* ------------------------------------------------ primary ETA card */
+    .forecastCard {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-surface);
+      padding: var(--sp-8);
+      margin-bottom: var(--sp-6);
+      box-shadow: var(--sh-2);
+      overflow: hidden;
+    }
+    .forecastCard::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--status-color, var(--accent));
+    }
+
+    .forecastHead {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: var(--sp-6);
+    }
+    .trainIdentity h2 {
+      font-family: var(--font-brand);
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+    .trainSub {
+      font-family: var(--font-pixel);
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Status Chip matching reference */
+    .statusChip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: var(--r-pill);
+      font-size: var(--fs-xs);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: var(--chip-bg, var(--tag-neutral-bg));
+      color: var(--chip-fg, var(--tag-neutral-fg));
+      border: 1px solid currentColor;
+    }
+
+    .forecastBody {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-6);
+      padding: var(--sp-6);
+      background: var(--bg-sunken);
+      border-radius: var(--r-control);
+      border: 1px solid var(--line);
+    }
+    @media (max-width: 700px) {
+      .forecastBody {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .bigDelayBlock {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .delayHeroNumber {
+      font-family: var(--font-num);
+      font-size: clamp(3rem, 5.5vw, 4.75rem);
+      line-height: 0.95;
+      letter-spacing: -0.01em;
+      color: var(--status-color, var(--accent));
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .delayHeroUnit {
+      font-family: var(--font-ui);
+      font-size: 18px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    /* Journey track segments (reference .stateTrack) */
+    .journeyTrack {
+      display: flex;
+      gap: 4px;
+      margin-top: var(--sp-5);
+    }
+    .trackSegment {
+      height: 5px;
+      flex: 1;
+      border-radius: 2px;
+      background: var(--line);
+      transition: background-color var(--t-base) var(--ease-out);
+    }
+    .trackSegment[data-active="true"] {
+      background: var(--accent);
+    }
+    .trackSegment[data-done="true"] {
+      background: var(--text);
+    }
+
+    /* Model specification card */
+    .engineCard {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .engineTitle {
+      font-size: var(--fs-sm);
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .engineRows {
+      font-size: var(--fs-xs);
+      color: var(--muted);
+      display: grid;
+      gap: 6px;
+    }
+    .engineRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed var(--line);
+      padding-bottom: 4px;
+    }
+
+    /* Regression formula bar */
+    .formulaBar {
+      margin-top: var(--sp-4);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-control);
+      padding: 12px 16px;
+      font-size: var(--fs-xs);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+    .formulaCode {
+      font-family: var(--font-pixel);
+      font-size: 11px;
+      color: var(--accent-ink);
+      background: var(--accent-wash);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--accent);
+    }
+
+    /* ------------------------------------------------------------ footer */
+    .footer {
+      border-top: 1px solid var(--line);
+      padding: var(--sp-6) var(--pad-x);
+      font-size: var(--fs-xs);
+      color: var(--muted);
+      background: var(--bg);
+      transition: background-color var(--t-base) var(--ease-out);
+    }
+    .footerInner {
+      max-width: var(--max-w);
+      margin-inline: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
-<body class="bg-navy-950 text-slate-100 min-h-screen antialiased flex flex-col">
-  <div id="root" class="flex-grow"></div>
+<body>
+  <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
     const TRAINS = [
       { no: "12238", name: "Begampura Express", route: "Varanasi → Jammu", distance: 1260 },
@@ -68,38 +892,60 @@
     ];
 
     function App() {
+      const [theme, setTheme] = useState("light");
       const [selectedTrain, setSelectedTrain] = useState("12238");
       const [overrideDelay, setOverrideDelay] = useState("");
       const [isOverridden, setIsOverridden] = useState(false);
       const [loading, setLoading] = useState(false);
-      const [error, setError] = useState(null);
       const [etaData, setEtaData] = useState(null);
+      const [systemTime, setSystemTime] = useState("");
+
+      // Initialize theme from localStorage or document
+      useEffect(() => {
+        const savedTheme = localStorage.getItem("auralis.theme") || "light";
+        setTheme(savedTheme);
+        document.documentElement.dataset.theme = savedTheme;
+      }, []);
+
+      // Clock for operations rail
+      useEffect(() => {
+        const updateClock = () => {
+          const now = new Date();
+          setSystemTime(now.toTimeString().split(" ")[0] + " IST");
+        };
+        updateClock();
+        const timer = setInterval(updateClock, 1000);
+        return () => clearInterval(timer);
+      }, []);
+
+      const toggleTheme = () => {
+        const next = theme === "dark" ? "light" : "dark";
+        setTheme(next);
+        document.documentElement.dataset.theme = next;
+        localStorage.setItem("auralis.theme", next);
+      };
 
       const fetchEta = async (trainNo, customDelay = null) => {
         setLoading(true);
-        setError(null);
         try {
           let url = `/eta/${trainNo}`;
           if (customDelay !== null && customDelay !== "" && !isNaN(customDelay)) {
             url += `?current_delay=${encodeURIComponent(customDelay)}`;
           }
           const res = await fetch(url);
-          if (!res.ok) {
-            throw new Error(`Error ${res.status}: Failed to fetch ETA`);
-          }
+          if (!res.ok) throw new Error("Failed to fetch");
           const data = await res.json();
           setEtaData(data);
           if (customDelay === null) {
             setOverrideDelay(data.features_used.current_delay);
           }
-        } catch (err) {
-          setError(err.message);
+        } catch (e) {
+          console.error(e);
         } finally {
           setLoading(false);
         }
       };
 
-      // Initial fetch on train change
       useEffect(() => {
         setIsOverridden(false);
         fetchEta(selectedTrain);
@@ -117,304 +963,444 @@
         }
       };
 
-      const handleResetOverride = () => {
+      const handleReset = () => {
         setIsOverridden(false);
         fetchEta(selectedTrain, null);
       };
 
-      const activeTrainInfo = TRAINS.find(t => t.no === selectedTrain) || {};
+      const activeTrain = TRAINS.find(t => t.no === selectedTrain) || TRAINS[0];
 
-      // Calculate severity styling based on predicted delay
+      // Severity classification based on reference tokens
       const getSeverity = (minutes) => {
         if (minutes <= 15) {
-          return { label: "Low Delay / Near On-Time", color: "text-teal-400", bg: "bg-teal-950/60 border-teal-500/40" };
+          return {
+            label: "ON SCHEDULE",
+            tagBg: "var(--tag-ok-bg)",
+            tagFg: "var(--tag-ok-fg)",
+            color: "var(--ok)",
+            statusText: "NORMAL OPERATION"
+          };
         } else if (minutes <= 45) {
-          return { label: "Moderate Delay", color: "text-amber-400", bg: "bg-amber-950/60 border-amber-500/40" };
+          return {
+            label: "MODERATE DELAY",
+            tagBg: "var(--tag-warn-bg)",
+            tagFg: "var(--tag-warn-fg)",
+            color: "var(--warn)",
+            statusText: "MONITORING REQUIRED"
+          };
         } else {
-          return { label: "Significant Delay", color: "text-rose-400", bg: "bg-rose-950/60 border-rose-500/40" };
+          return {
+            label: "SIGNIFICANT DELAY",
+            tagBg: "var(--tag-bad-bg)",
+            tagFg: "var(--tag-bad-fg)",
+            color: "var(--bad)",
+            statusText: "PRIORITY INTERVENTION"
+          };
         }
       };
 
-      const severity = etaData ? getSeverity(etaData.predicted_delay_minutes) : null;
+      const severity = etaData ? getSeverity(etaData.predicted_delay_minutes) : getSeverity(46);
 
       return (
-        <div class="min-h-screen bg-navy-950 text-slate-100 flex flex-col justify-between">
-          {/* Navbar */}
-          <header class="border-b border-navy-800/80 bg-navy-900/90 backdrop-blur-md sticky top-0 z-50">
-            <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-teal-400 flex items-center justify-center text-navy-950 font-black text-xl shadow-lg shadow-teal-500/20">
-                  🚆
-                </div>
-                <div>
-                  <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                    Smart ETA
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/30 font-medium">
-                      ML Live
-                    </span>
-                  </h1>
-                  <p class="text-xs text-slate-400">Indian Railways Delay Forecasting Engine</p>
-                </div>
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+          
+          {/* Operations Status Rail */}
+          <div className="statusRail">
+            <div className="statusRailInner">
+              <div className="railItem">
+                <span className="railKey">NETWORK:</span>
+                <span className="railVal">IR-NORTH/SOUTH</span>
               </div>
+              <div className="railItem">
+                <span className="railKey">SYSTEM CLOCK:</span>
+                <span className="railVal">{systemTime || "LIVE"}</span>
+              </div>
+              <div className="railItem">
+                <span className="railKey">ML PIPELINE:</span>
+                <span className="railVal">SKLEARN::LIN_REG</span>
+              </div>
+              <div className="railItem">
+                <span className="railKey">MAE:</span>
+                <span className="railVal">22.90 MIN</span>
+              </div>
+              <div className="railItem">
+                <span className="railKey">STATUS:</span>
+                <span className="railVal" style={{ color: "var(--ok)" }}>ACTIVE (100 RECORDS)</span>
+              </div>
+            </div>
+          </div>
 
-              <div class="flex items-center gap-4 text-xs text-slate-400">
-                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-navy-850 border border-navy-800">
-                  <span class="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
-                  <span>Linear Regression Pipeline</span>
+          {/* Top Navbar */}
+          <header className="nav">
+            <div className="navInner">
+              <a href="#" className="wordmark">
+                <span className="brandDot" />
+                SMART ETA // OPS
+              </a>
+
+              <nav className="navLinks">
+                <button className="navLink" data-active="true">FORECAST CONSOLE</button>
+                <button className="navLink" onClick={() => window.open("/docs", "_blank")}>API SPECS</button>
+                <button className="navLink" onClick={() => window.open("/api/trains", "_blank")}>TRAIN REGISTRY</button>
+              </nav>
+
+              <div className="navRight">
+                <div className="livePill">
+                  <span className="liveDot" />
+                  <span>ONLINE</span>
                 </div>
-                <div class="px-3 py-1.5 rounded-lg bg-navy-850 border border-navy-800">
-                  <span class="text-slate-400">Test MAE:</span> <strong class="text-teal-400">22.90 min</strong>
-                </div>
+
+                <button
+                  className="themeBtn"
+                  onClick={toggleTheme}
+                  aria-label="Toggle Theme"
+                  title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                >
+                  {theme === "dark" ? (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="5"></circle>
+                      <line x1="12" y1="1" x2="12" y2="3"></line>
+                      <line x1="12" y1="21" x2="12" y2="23"></line>
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                      <line x1="1" y1="12" x2="3" y2="12"></line>
+                      <line x1="21" y1="12" x2="23" y2="12"></line>
+                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
           </header>
 
-          {/* Main Dashboard Content */}
-          <main class="max-w-6xl mx-auto px-6 py-8 flex-grow w-full">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Main Dashboard Workspace */}
+          <main className="mainContainer">
+            
+            {/* Header / Breadcrumb */}
+            <div className="pageHeader">
+              <div className="pageTitleBlock">
+                <h1>Railway Delay Forecasting Engine</h1>
+                <p className="pageSubtitle">
+                  Real-time arrival variance prediction utilizing historical route trends and live telemetry
+                </p>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <span className="statusChip" style={{ background: "var(--accent-wash)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>
+                  SELECTED // #{selectedTrain}
+                </span>
+              </div>
+            </div>
+
+            {/* Metric Tiles Strip (Reference Component Pattern) */}
+            <div className="metricGrid">
+              <div className="metricTile">
+                <span className="metricTileLabel">Active Train Profile</span>
+                <span className="metricTileVal" style={{ fontSize: "24px", fontFamily: "var(--font-brand)", fontWeight: 700 }}>
+                  {selectedTrain}
+                </span>
+                <span className="metricTileFoot">{activeTrain.name}</span>
+              </div>
+
+              <div className="metricTile">
+                <span className="metricTileLabel">Current Observed Delay</span>
+                <span className="metricTileVal">
+                  {etaData?.features_used?.current_delay ?? "--"}
+                  <span className="metricTileUnit">min</span>
+                </span>
+                <span className="metricTileFoot">
+                  {isOverridden ? "⚡ User simulation" : "📂 Last recorded trip"}
+                </span>
+              </div>
+
+              <div className="metricTile">
+                <span className="metricTileLabel">Historical Route Average</span>
+                <span className="metricTileVal">
+                  {etaData?.features_used?.historical_avg_delay_this_train ?? "--"}
+                  <span className="metricTileUnit">min</span>
+                </span>
+                <span className="metricTileFoot">10-year winter baseline</span>
+              </div>
+
+              <div className="metricTile">
+                <span className="metricTileLabel">Model Validation MAE</span>
+                <span className="metricTileVal" style={{ color: "var(--accent)" }}>
+                  22.90
+                  <span className="metricTileUnit">min</span>
+                </span>
+                <span className="metricTileFoot">20.8% better than XGBoost</span>
+              </div>
+            </div>
+
+            {/* Main Console Content Grid */}
+            <div className="dashboardGrid">
               
-              {/* Left Column: Interactive Controls */}
-              <div class="lg:col-span-5 space-y-6">
+              {/* Left Column: Train Selection & Simulation Controls */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                 
                 {/* Train Selector Card */}
-                <div class="bg-navy-900/95 border border-navy-800 rounded-2xl p-6 glow-navy shadow-xl">
-                  <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-sm font-semibold uppercase tracking-wider text-teal-400 flex items-center gap-2">
-                      <span class="text-base">📍</span> Select Train
-                    </h2>
-                    <span class="text-xs text-slate-400">10 Real Trains Available</span>
+                <div className="card">
+                  <div className="cardHeader">
+                    <span className="cardTitle">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                      Train Selection
+                    </span>
+                    <span style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--font-pixel)" }}>10 REG</span>
                   </div>
 
-                  <label class="block text-xs font-medium text-slate-300 mb-2">Train Number & Name</label>
-                  <div class="relative">
+                  <label className="controlLabel">Select Registered Train:</label>
+                  <div className="selectWrapper">
                     <select
+                      className="customSelect"
                       value={selectedTrain}
                       onChange={handleTrainChange}
-                      class="w-full bg-navy-950 border border-navy-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 transition-all cursor-pointer appearance-none"
                     >
                       {TRAINS.map((t) => (
-                        <option key={t.no} value={t.no} class="bg-navy-950 text-white py-2">
+                        <option key={t.no} value={t.no}>
                           {t.no} — {t.name}
                         </option>
                       ))}
                     </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-teal-400">
-                      ▼
-                    </div>
+                    <span className="selectArrow">▼</span>
                   </div>
 
-                  {/* Route details banner */}
-                  <div class="mt-4 p-3.5 rounded-xl bg-navy-950/70 border border-navy-800/80 flex items-center justify-between text-xs">
+                  {/* Route & Track Info */}
+                  <div className="routePlate">
                     <div>
-                      <span class="text-slate-400 block">Route</span>
-                      <strong class="text-white text-sm">{activeTrainInfo.route}</strong>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Route</span>
+                      <div className="routeVal">{activeTrain.route}</div>
                     </div>
-                    <div class="text-right">
-                      <span class="text-slate-400 block">Track Distance</span>
-                      <strong class="text-teal-400 font-mono text-sm">{activeTrainInfo.distance} km</strong>
+                    <div style={{ textAlign: "right" }}>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Distance</span>
+                      <div className="routeVal" style={{ fontFamily: "var(--font-num)" }}>{activeTrain.distance} km</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Real-time Simulation / Override Card */}
-                <div class="bg-navy-900/95 border border-navy-800 rounded-2xl p-6 glow-navy shadow-xl">
-                  <div class="flex items-center justify-between mb-3">
-                    <h2 class="text-sm font-semibold uppercase tracking-wider text-teal-400 flex items-center gap-2">
-                      <span class="text-base">⚡</span> Real-Time Simulator
-                    </h2>
-                    {isOverridden ? (
-                      <span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
-                        User Overridden
-                      </span>
-                    ) : (
-                      <span class="text-[11px] px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-400 border border-teal-500/20">
-                        Default Proxy
-                      </span>
-                    )}
+                {/* Real-time Simulator Card */}
+                <div className="card">
+                  <div className="cardHeader">
+                    <span className="cardTitle">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                      Telemetry Override
+                    </span>
+                    <span style={{
+                      fontSize: "10px",
+                      padding: "2px 8px",
+                      borderRadius: "var(--r-pill)",
+                      background: isOverridden ? "var(--tag-warn-bg)" : "var(--tag-neutral-bg)",
+                      color: isOverridden ? "var(--tag-warn-fg)" : "var(--tag-neutral-fg)",
+                      fontWeight: 600
+                    }}>
+                      {isOverridden ? "OVERRIDDEN" : "RECORDED"}
+                    </span>
                   </div>
 
-                  <p class="text-xs text-slate-400 mb-4">
-                    Simulate real-time tracker updates by modifying the current observed delay. The model will recompute the final arrival delay instantly.
+                  <p className="controlHint" style={{ marginBottom: "14px" }}>
+                    Simulate active track condition updates by manipulating current delay telemetry in minutes:
                   </p>
 
-                  <div class="space-y-4">
-                    <div>
-                      <div class="flex justify-between items-center mb-1.5">
-                        <label class="text-xs font-medium text-slate-300">
-                          Current Observed Delay (minutes):
-                        </label>
-                        <span class="font-mono text-teal-400 font-bold text-sm">
-                          {overrideDelay || 0} min
-                        </span>
-                      </div>
-                      
-                      <div class="flex items-center gap-3">
-                        <input
-                          type="number"
-                          min="0"
-                          max="600"
-                          value={overrideDelay}
-                          onChange={(e) => handleDelayChange(e.target.value)}
-                          placeholder="0"
-                          class="w-28 bg-navy-950 border border-navy-700 text-white rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 text-center"
-                        />
-                        <input
-                          type="range"
-                          min="0"
-                          max="240"
-                          step="5"
-                          value={overrideDelay || 0}
-                          onChange={(e) => handleDelayChange(e.target.value)}
-                          class="flex-grow h-2 bg-navy-950 rounded-lg appearance-none cursor-pointer accent-teal-400"
-                        />
-                      </div>
+                  <div className="simulatorField">
+                    <div className="simHeader">
+                      <span style={{ fontSize: "12px", fontWeight: 600 }}>Active Delay Value:</span>
+                      <span className="simValLarge">
+                        {overrideDelay || 0} <span style={{ fontSize: "14px", color: "var(--muted)" }}>m</span>
+                      </span>
+                    </div>
+
+                    <div className="sliderRow">
+                      <input
+                        type="number"
+                        min="0"
+                        max="360"
+                        className="numInput"
+                        value={overrideDelay}
+                        onChange={(e) => handleDelayChange(e.target.value)}
+                      />
+                      <input
+                        type="range"
+                        min="0"
+                        max="240"
+                        step="5"
+                        className="rangeSlider"
+                        value={overrideDelay || 0}
+                        onChange={(e) => handleDelayChange(e.target.value)}
+                      />
                     </div>
 
                     {isOverridden && (
-                      <button
-                        onClick={handleResetOverride}
-                        class="w-full text-xs py-2 px-3 rounded-xl bg-navy-800 hover:bg-navy-700 text-teal-300 border border-navy-700 transition flex items-center justify-center gap-1.5"
-                      >
-                        ↺ Reset to Recorded Train Delay
+                      <button className="btnReset" onClick={handleReset}>
+                        ↺ Revert to Stored Delay Proxy
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* API Status Badge */}
-                <div class="p-4 rounded-2xl bg-navy-900/60 border border-navy-800/80 text-xs flex items-center justify-between text-slate-400">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-teal-400"></span>
-                    <span>Endpoint:</span>
-                    <code class="text-teal-300 font-mono bg-navy-950 px-2 py-0.5 rounded border border-navy-800">
-                      /eta/{selectedTrain}{isOverridden ? `?current_delay=${overrideDelay}` : ''}
+                {/* API Request Verification Block */}
+                <div style={{
+                  padding: "12px 14px",
+                  borderRadius: "var(--r-control)",
+                  background: "var(--bg-sunken)",
+                  border: "1px solid var(--line)",
+                  fontSize: "12px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--ok)" }}></span>
+                    <code style={{ fontFamily: "var(--font-pixel)", fontSize: "10px" }}>
+                      /eta/{selectedTrain}{isOverridden ? `?current_delay=${overrideDelay}` : ""}
                     </code>
                   </div>
-                  {loading && <span class="text-teal-400 animate-pulse">Calculating...</span>}
+                  {loading && <span style={{ color: "var(--accent)", fontSize: "11px", fontWeight: 600 }}>SYNCING...</span>}
                 </div>
 
               </div>
 
-              {/* Right Column: Prediction Results & Features */}
-              <div class="lg:col-span-7 space-y-6">
+              {/* Right Column: Predicted Forecast & Feature Evidence */}
+              <div>
+                
+                {/* Primary Forecast Display (Editorial Operations Card) */}
+                <div className="forecastCard" style={{ "--status-color": severity.color }}>
+                  
+                  <div className="forecastHead">
+                    <div className="trainIdentity">
+                      <h2>{etaData?.train_name || activeTrain.name}</h2>
+                      <div className="trainSub">TRAIN NUMBER {selectedTrain} // ROUTE {activeTrain.route}</div>
+                    </div>
 
-                {/* Primary Prediction Card */}
-                <div class="bg-gradient-to-br from-navy-900 via-navy-850 to-navy-900 border border-teal-500/30 rounded-3xl p-8 glow-teal shadow-2xl relative overflow-hidden">
-                  <div class="absolute -right-12 -top-12 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <span
+                      className="statusChip"
+                      style={{
+                        background: severity.tagBg,
+                        color: severity.tagFg,
+                        borderColor: severity.color
+                      }}
+                    >
+                      {severity.label}
+                    </span>
+                  </div>
 
-                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-navy-800 pb-6 mb-6">
-                    <div>
-                      <span class="text-xs uppercase tracking-widest text-teal-400 font-bold block mb-1">
-                        Predicted Delay Forecast
+                  <div className="forecastBody">
+                    {/* Big Forecast Number */}
+                    <div className="bigDelayBlock">
+                      <span style={{ fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                        Predicted Arrival Delay
                       </span>
-                      <h2 class="text-2xl font-bold text-white">
-                        {etaData?.train_name || activeTrainInfo.name}
-                      </h2>
-                      <p class="text-xs text-slate-400 font-mono mt-0.5">Train #{selectedTrain}</p>
+                      <div className="delayHeroNumber">
+                        +{loading ? "--" : (etaData?.predicted_delay_minutes ?? 0)}
+                        <span className="delayHeroUnit">MINUTES</span>
+                      </div>
+                      <span style={{ fontSize: "12px", color: severity.color, fontWeight: 600, marginTop: "6px" }}>
+                        {severity.statusText}
+                      </span>
                     </div>
 
-                    {severity && (
-                      <div class={`px-4 py-2 rounded-xl border text-xs font-semibold ${severity.bg} ${severity.color} self-start sm:self-auto`}>
-                        {severity.label}
+                    {/* Model & Runtime Details */}
+                    <div className="engineCard">
+                      <div className="engineTitle">
+                        <span style={{ color: "var(--accent)" }}>◆</span>
+                        <span>PRODUCTION INFERENCE</span>
                       </div>
-                    )}
-                  </div>
 
-                  {/* Main Metric Callout */}
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 my-2">
-                    <div class="bg-navy-950/80 rounded-2xl p-6 border border-navy-800 flex flex-col justify-center">
-                      <span class="text-xs text-slate-400 font-medium mb-1">Estimated Final Delay</span>
-                      <div class="flex items-baseline gap-2">
-                        <span class="text-5xl font-extrabold tracking-tight text-teal-400 font-mono">
-                          {loading ? "--" : `+${etaData?.predicted_delay_minutes ?? 0}`}
-                        </span>
-                        <span class="text-slate-400 font-semibold text-lg">min</span>
-                      </div>
-                      <p class="text-[11px] text-slate-400 mt-2">
-                        Linear regression estimated arrival deviation
-                      </p>
-                    </div>
-
-                    <div class="bg-navy-950/80 rounded-2xl p-6 border border-navy-800 flex flex-col justify-center">
-                      <span class="text-xs text-slate-400 font-medium mb-1">Model Inference Engine</span>
-                      <div class="text-lg font-bold text-white flex items-center gap-2 mt-1">
-                        <span class="text-teal-400">✓</span> Linear Regression
-                      </div>
-                      <div class="mt-3 text-[11px] text-slate-400 space-y-1 font-mono">
-                        <div class="flex justify-between">
-                          <span>Model Artifact:</span>
-                          <span class="text-teal-300">linear_regression_model.joblib</span>
+                      <div className="engineRows">
+                        <div className="engineRow">
+                          <span>Model File:</span>
+                          <strong style={{ color: "var(--text)" }}>linear_regression_model.joblib</strong>
                         </div>
-                        <div class="flex justify-between">
-                          <span>Test MAE:</span>
-                          <span class="text-white">22.90 min (vs XGB 28.91)</span>
+                        <div className="engineRow">
+                          <span>Model Algorithm:</span>
+                          <span style={{ color: "var(--text)" }}>Linear Regression Pipeline</span>
+                        </div>
+                        <div className="engineRow">
+                          <span>Model Error (MAE):</span>
+                          <span style={{ color: "var(--text)", fontWeight: 600 }}>22.90 min (vs XGB 28.91 min)</span>
+                        </div>
+                        <div className="engineRow">
+                          <span>Train / Test Split:</span>
+                          <span style={{ color: "var(--text)" }}>80 rows train / 20 rows test</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* Journey Phase Segmentation Track (Reference .stateTrack pattern) */}
+                  <div style={{ marginTop: "24px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+                      <span>Origin: {activeTrain.route.split("→")[0].trim()}</span>
+                      <span>En Route Progress</span>
+                      <span>Terminus: {activeTrain.route.split("→")[1].trim()}</span>
+                    </div>
+                    <div className="journeyTrack">
+                      <div className="trackSegment" data-done="true" />
+                      <div className="trackSegment" data-done="true" />
+                      <div className="trackSegment" data-active="true" />
+                      <div className="trackSegment" />
+                      <div className="trackSegment" />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Features Used Breakdown Card */}
-                <div class="bg-navy-900/95 border border-navy-800 rounded-2xl p-6 glow-navy shadow-xl">
-                  <div class="flex items-center justify-between mb-5">
-                    <h3 class="text-sm font-semibold uppercase tracking-wider text-teal-400 flex items-center gap-2">
-                      <span>📊</span> Input Features Feed
-                    </h3>
-                    <span class="text-xs text-slate-400">Active Inputs to Regression Pipeline</span>
+                {/* Features Used Feed Card */}
+                <div className="card">
+                  <div className="cardHeader">
+                    <span className="cardTitle">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/></svg>
+                      Input Features Matrix
+                    </span>
+                    <span style={{ fontSize: "11px", color: "var(--muted)" }}>EVIDENCE BASIS</span>
                   </div>
 
-                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "12px" }}>
                     
-                    {/* Feature 1: Current Delay */}
-                    <div class="bg-navy-950 rounded-xl p-4 border border-navy-800">
-                      <span class="text-[11px] text-slate-400 block mb-1">Current Delay</span>
-                      <strong class="text-lg font-mono text-teal-400">
-                        {etaData?.features_used?.current_delay ?? "--"} min
-                      </strong>
-                      <span class="text-[10px] text-slate-400 block mt-1">
-                        {isOverridden ? "⚡ User Override" : "📂 Last Trip Proxy"}
+                    <div style={{ background: "var(--bg-sunken)", padding: "14px", borderRadius: "var(--r-control)", border: "1px solid var(--line)" }}>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>Current Delay</span>
+                      <div style={{ fontFamily: "var(--font-num)", fontSize: "22px", color: "var(--text)", margin: "4px 0" }}>
+                        {etaData?.features_used?.current_delay ?? "--"} m
+                      </div>
+                      <span style={{ fontSize: "10px", color: "var(--muted)" }}>
+                        {isOverridden ? "Live override" : "Prior trip record"}
                       </span>
                     </div>
 
-                    {/* Feature 2: Historical Average */}
-                    <div class="bg-navy-950 rounded-xl p-4 border border-navy-800">
-                      <span class="text-[11px] text-slate-400 block mb-1">Historical Avg</span>
-                      <strong class="text-lg font-mono text-teal-400">
-                        {etaData?.features_used?.historical_avg_delay_this_train ?? "--"} min
-                      </strong>
-                      <span class="text-[10px] text-slate-400 block mt-1">10-Year Train Baseline</span>
+                    <div style={{ background: "var(--bg-sunken)", padding: "14px", borderRadius: "var(--r-control)", border: "1px solid var(--line)" }}>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>Historical Mean</span>
+                      <div style={{ fontFamily: "var(--font-num)", fontSize: "22px", color: "var(--text)", margin: "4px 0" }}>
+                        {etaData?.features_used?.historical_avg_delay_this_train ?? "--"} m
+                      </div>
+                      <span style={{ fontSize: "10px", color: "var(--muted)" }}>Train overall avg</span>
                     </div>
 
-                    {/* Feature 3: Season */}
-                    <div class="bg-navy-950 rounded-xl p-4 border border-navy-800">
-                      <span class="text-[11px] text-slate-400 block mb-1">Season</span>
-                      <strong class="text-lg text-white">
+                    <div style={{ background: "var(--bg-sunken)", padding: "14px", borderRadius: "var(--r-control)", border: "1px solid var(--line)" }}>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>Operating Season</span>
+                      <div style={{ fontSize: "16px", fontWeight: 600, color: "var(--text)", margin: "6px 0" }}>
                         {etaData?.features_used?.season ?? "Winter"}
-                      </strong>
-                      <span class="text-[10px] text-teal-500/80 block mt-1">❄️ Winter Peak</span>
+                      </div>
+                      <span style={{ fontSize: "10px", color: "var(--muted)" }}>Winter season</span>
                     </div>
 
-                    {/* Feature 4: Frequency */}
-                    <div class="bg-navy-950 rounded-xl p-4 border border-navy-800">
-                      <span class="text-[11px] text-slate-400 block mb-1">Frequency</span>
-                      <strong class="text-lg text-white">
+                    <div style={{ background: "var(--bg-sunken)", padding: "14px", borderRadius: "var(--r-control)", border: "1px solid var(--line)" }}>
+                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>Run Frequency</span>
+                      <div style={{ fontSize: "16px", fontWeight: 600, color: "var(--text)", margin: "6px 0" }}>
                         {etaData?.features_used?.run_frequency ?? "Daily"}
-                      </strong>
-                      <span class="text-[10px] text-slate-400 block mt-1">Schedule Pattern</span>
+                      </div>
+                      <span style={{ fontSize: "10px", color: "var(--muted)" }}>Scheduled cadence</span>
                     </div>
 
                   </div>
 
-                  {/* Formula explanation */}
-                  <div class="mt-5 pt-4 border-t border-navy-800/80 text-xs text-slate-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                    <div>
-                      <span class="text-slate-300 font-medium">Regression Formula: </span>
-                      <code class="text-teal-300 font-mono">
-                        delay ≈ 8.05 + 0.211×(curr) + 0.644×(hist_avg)
-                      </code>
-                    </div>
-                    <span class="text-[11px] text-slate-400">One-Hot Encoded Categories</span>
+                  <div className="formulaBar">
+                    <span>
+                      <strong>Formula: </strong>
+                      <code>delay ≈ 8.05 + 0.211×(current) + 0.644×(historical_avg)</code>
+                    </span>
+                    <span className="formulaCode">WEIGHTED LINEAR FIT</span>
                   </div>
                 </div>
 
@@ -424,9 +1410,13 @@
           </main>
 
           {/* Footer */}
-          <footer class="border-t border-navy-800/80 py-4 text-center text-xs text-slate-400">
-            Smart ETA • Real-Time Indian Railways Delay Prediction System • Powered by FastAPI & Scikit-Learn
+          <footer className="footer">
+            <div className="footerInner">
+              <span>SMART ETA // INDIAN RAILWAYS PREDICTIVE OPERATIONS CONSOLE</span>
+              <span>INSPIRED BY AURALIS C3 DESIGN SPECIFICATION • BUILT WITH FASTAPI & SCIKIT-LEARN</span>
+            </div>
           </footer>
+
         </div>
       );
     }

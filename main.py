@@ -5,18 +5,26 @@ import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+# Determine project base directory (robust for both local and Vercel serverless environments)
 BASE_DIR = Path(__file__).resolve().parent
+if not (BASE_DIR / "data").exists() and (BASE_DIR.parent / "data").exists():
+    BASE_DIR = BASE_DIR.parent
+
 DB_PATH = BASE_DIR / "data" / "delays.db"
 MODEL_PATH = BASE_DIR / "model" / "linear_regression_model.joblib"
 STATIC_DIR = BASE_DIR / "static"
 INDEX_FILE = STATIC_DIR / "index.html"
 
-app = FastAPI(title="Smart ETA API", version="1.0.0")
+app = FastAPI(
+    title="Smart ETA API",
+    description="Real-Time Indian Railways Delay Forecasting Engine",
+    version="1.0.0"
+)
 
-# Enable CORS for cross-origin frontend support
+# Enable CORS for cross-origin frontend requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static directory if it exists
+# Mount static directory if present
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
@@ -36,15 +44,25 @@ if not MODEL_PATH.exists():
 model = joblib.load(MODEL_PATH)
 
 
-def get_train_profile(train_number: str):
-    """Retrieve train metadata and default feature values from SQLite database."""
+def get_db_connection():
+    """Create a SQLite connection, using read-only URI mode for serverless read-only filesystems."""
     if not DB_PATH.exists():
         return None
-
-    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn = sqlite3.connect(f"file:{DB_PATH.resolve().as_posix()}?mode=ro", uri=True)
+    except Exception:
+        conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
+    return conn
 
+
+def get_train_profile(train_number: str):
+    """Retrieve train metadata and default feature values from SQLite database."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+
+    cur = conn.cursor()
     query = """
         SELECT 
             train_no,
@@ -70,30 +88,37 @@ def get_train_profile(train_number: str):
 
 @app.get("/")
 def read_root(request: Request):
-    # If a web browser requests the root URL, serve the interactive React UI
+    """Serve UI if HTML requested, otherwise JSON health status."""
     accept_header = request.headers.get("accept", "")
     if "text/html" in accept_header and INDEX_FILE.exists():
-        return FileResponse(INDEX_FILE, media_type="text/html")
-    return {"status": "ok"}
+        html_content = INDEX_FILE.read_text(encoding="utf-8")
+        return HTMLResponse(content=html_content, media_type="text/html")
+    return {"status": "ok", "service": "Smart ETA API", "version": "1.0.0"}
+
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for container and uptime monitoring."""
+    return {"status": "healthy", "model_loaded": model is not None, "database_connected": DB_PATH.exists()}
 
 
 @app.get("/ui", response_class=HTMLResponse)
 @app.get("/app", response_class=HTMLResponse)
 def get_ui():
-    """Serve the Smart ETA React Single Page Application."""
+    """Serve the Smart ETA React Operations Console."""
     if not INDEX_FILE.exists():
         raise HTTPException(status_code=404, detail="UI index.html not found.")
-    return FileResponse(INDEX_FILE, media_type="text/html")
+    html_content = INDEX_FILE.read_text(encoding="utf-8")
+    return HTMLResponse(content=html_content, media_type="text/html")
 
 
 @app.get("/api/trains")
 def list_trains():
     """Return all distinct trains with metadata for dropdown selection."""
-    if not DB_PATH.exists():
+    conn = get_db_connection()
+    if not conn:
         return []
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute("""
         SELECT DISTINCT 
@@ -150,7 +175,6 @@ def get_eta(
     # Predict delay using Linear Regression model
     try:
         prediction_val = float(model.predict(features_input)[0])
-        # Delay cannot be negative in ETA predictions
         predicted_delay = round(max(0.0, prediction_val), 1)
     except Exception as e:
         raise HTTPException(

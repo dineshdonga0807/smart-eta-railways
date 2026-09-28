@@ -852,6 +852,58 @@
       border: 1px solid var(--accent);
     }
 
+    /* -------------------------------------- likely delay reasons card */
+    .delayReasonRow {
+      background: var(--bg-sunken);
+      border: 1px solid var(--line);
+      border-radius: var(--r-control);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+    }
+    .delayReasonRow:hover {
+      border-color: var(--line-strong);
+      transform: translateX(2px);
+    }
+    .delayReasonHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .delayReasonTitle {
+      font-size: var(--fs-xs);
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .delayReasonBadge {
+      font-family: var(--font-num);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .delayReasonTrack {
+      width: 100%;
+      height: 7px;
+      background: var(--line);
+      border-radius: var(--r-pill);
+      overflow: hidden;
+      position: relative;
+    }
+    .delayReasonBar {
+      height: 100%;
+      border-radius: var(--r-pill);
+      transition: width var(--t-slow) var(--ease-out), background-color var(--t-base) var(--ease-out);
+    }
+
     /* ------------------------------------------------------------ footer */
     .footer {
       border-top: 1px solid var(--line);
@@ -1199,6 +1251,27 @@
               </div>
             </div>
 
+            <!-- Likely Reasons for Delay Card -->
+            <div class="card" id="delayReasonsCard" style="margin-bottom: var(--sp-6);">
+              <div class="cardHeader">
+                <span class="cardTitle">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                  </svg>
+                  Likely Reasons for Delay
+                </span>
+                <span style="font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;">
+                  Likely contributing factors (model-based)
+                </span>
+              </div>
+
+              <div id="delayReasonsList" class="delayReasonsList" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Populated dynamically via renderDelayReasons -->
+              </div>
+            </div>
+
             <!-- Features Used Feed Card -->
             <div class="card">
               <div class="cardHeader">
@@ -1336,6 +1409,7 @@
       const systemClock = document.getElementById("systemClock");
       const navApiSpecs = document.getElementById("navApiSpecs");
       const navTrainReg = document.getElementById("navTrainReg");
+      const delayReasonsList = document.getElementById("delayReasonsList");
 
       // Severity classification
       function getSeverity(minutes) {
@@ -1412,6 +1486,122 @@
           featureSeason.textContent = data.features_used.season || "Winter";
           featureRunFreq.textContent = data.features_used.run_frequency || "Daily";
         }
+
+        if (data.delay_reasons) {
+          renderDelayReasons(data.delay_reasons);
+        }
+      }
+
+      function renderDelayReasons(reasons) {
+        if (!delayReasonsList || !reasons || !reasons.length) return;
+
+        const parsed = reasons.map(r => {
+          const match = r.match(/\(([+-]?\d+)\s*min\)/);
+          const mins = match ? parseInt(match[1], 10) : 0;
+          const label = r.replace(/\s*\([+-]?\d+\s*min\)/, "").trim();
+          return {
+            raw: r,
+            label: label,
+            mins: mins,
+            absMins: Math.abs(mins)
+          };
+        });
+
+        const maxMins = Math.max(30, ...parsed.map(p => p.absMins));
+
+        delayReasonsList.innerHTML = parsed.map(item => {
+          const mins = item.mins;
+          const absMins = item.absMins;
+          const pct = Math.min(100, Math.round((absMins / maxMins) * 100));
+
+          let barColor = "var(--line-strong)";
+          let badgeBg = "var(--tag-neutral-bg)";
+          let badgeFg = "var(--tag-neutral-fg)";
+          let dotColor = "var(--muted)";
+          let iconSvg = "";
+
+          if (mins > 15) {
+            barColor = "var(--bad)";
+            badgeBg = "var(--tag-bad-bg)";
+            badgeFg = "var(--tag-bad-fg)";
+            dotColor = "var(--bad)";
+            iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+          } else if (mins > 5) {
+            barColor = "var(--accent)";
+            badgeBg = "var(--tag-warn-bg)";
+            badgeFg = "var(--tag-warn-fg)";
+            dotColor = "var(--accent)";
+            iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+          } else if (mins > 0) {
+            barColor = "var(--warn)";
+            badgeBg = "var(--tag-warn-bg)";
+            badgeFg = "var(--tag-warn-fg)";
+            dotColor = "var(--warn)";
+            iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>`;
+          } else if (mins < 0) {
+            barColor = "var(--ok)";
+            badgeBg = "var(--tag-ok-bg)";
+            badgeFg = "var(--tag-ok-fg)";
+            dotColor = "var(--ok)";
+            iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>`;
+          } else {
+            barColor = "var(--line-strong)";
+            badgeBg = "var(--tag-neutral-bg)";
+            badgeFg = "var(--tag-neutral-fg)";
+            dotColor = "var(--muted)";
+            iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="2"/></svg>`;
+          }
+
+          const signedText = mins > 0 ? `+${mins} min` : (mins < 0 ? `${mins} min` : `+0 min`);
+          const barWidth = mins === 0 ? "3px" : `${pct}%`;
+
+          return `
+            <div class="delayReasonRow">
+              <div class="delayReasonHeader">
+                <div class="delayReasonTitle">
+                  <span style="color: ${dotColor}; display: inline-flex; align-items: center;">${iconSvg}</span>
+                  <span>${item.label}</span>
+                </div>
+                <span class="delayReasonBadge" style="background: ${badgeBg}; color: ${badgeFg};">
+                  ${signedText}
+                </span>
+              </div>
+              <div class="delayReasonTrack">
+                <div class="delayReasonBar" style="width: ${barWidth}; background: ${barColor};" title="${item.label}: ${signedText}"></div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      function updateLiveReasonsForOverride(currDelay) {
+        const currContrib = Math.round(currDelay * 0.2111522);
+        const histVal = parseFloat(histAvgDelayVal.textContent) || 0;
+        const histContrib = Math.round(histVal * 0.64423457);
+
+        const freqText = (featureRunFreq.textContent || "Daily").toLowerCase();
+        let freqContrib = 0;
+        if (freqText.includes("weekly") && !freqText.includes("tri")) {
+          freqContrib = -6;
+        } else if (freqText.includes("tri")) {
+          freqContrib = -3;
+        }
+
+        const reasons = [
+          { label: "This train is historically late", mins: histContrib },
+          { label: "Delay already building up", mins: currContrib },
+          { label: "Run frequency effect", mins: freqContrib },
+          { label: "Season effect", mins: 0 }
+        ];
+
+        reasons.sort((a, b) => Math.abs(b.mins) - Math.abs(a.mins));
+
+        const formattedReasons = reasons.map(r => {
+          const sign = r.mins >= 0 ? `+${r.mins}` : `${r.mins}`;
+          return `${r.label} (${sign} min)`;
+        });
+
+        renderDelayReasons(formattedReasons);
       }
 
       function fetchEta(trainNo, customDelay = null) {
@@ -1507,6 +1697,9 @@
         observedDelayFoot.textContent = "⚡ User simulation";
         featureCurrentDelayFoot.textContent = "Live override";
 
+        // Update delay reasons live on slider scrubbing
+        updateLiveReasonsForOverride(parseFloat(val) || 0);
+
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           if (val !== "" && !isNaN(val)) {
@@ -1553,8 +1746,17 @@
           historical_avg_delay_this_train: 42.5,
           season: "Winter",
           run_frequency: "Daliy"
-        }
+        },
+        delay_reasons: [
+          "This train is historically late (+27 min)",
+          "Delay already building up (+11 min)",
+          "Run frequency effect (+0 min)",
+          "Season effect (+0 min)"
+        ]
       });
+
+      // Initial render of pre-seeded baseline
+      applyForecastData(cache.get("12238_def"));
 
     })();
   </script>

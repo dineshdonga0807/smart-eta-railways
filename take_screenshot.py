@@ -6,7 +6,7 @@ import time
 TEMP_DIR = Path("C:/Users/SREE/AppData/Local/Temp")
 SCREENSHOT_TEMP = TEMP_DIR / "smart_eta_redesign.png"
 PROFILE_DIR = TEMP_DIR / "edge_headless_profile"
-ARTIFACT_DIR = Path("C:/Users/SREE/.gemini/antigravity/brain/56ca8655-df56-4a57-b912-e5ba99bad0d3")
+ARTIFACT_DIR = Path("C:/Users/SREE/.gemini/antigravity-ide/brain/f45d8c28-ef28-4926-a2da-a2c4466a43a9")
 WORKSPACE_DIR = Path("d:/Smart ETA")
 
 if SCREENSHOT_TEMP.exists():
@@ -17,7 +17,7 @@ edge_cmd = [
     "--headless=new",
     "--disable-gpu",
     "--no-sandbox",
-    "--window-size=1380,960",
+    "--window-size=1380,1350",
     f"--user-data-dir={PROFILE_DIR}",
     "--virtual-time-budget=6000",
     f"--screenshot={SCREENSHOT_TEMP}",

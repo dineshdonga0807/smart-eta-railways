@@ -257,7 +257,13 @@ from main import app  # Exposes ASGI app to Vercel
       "historical_avg_delay_this_train": 42.5,
       "season": "Winter",
       "run_frequency": "Daliy"
-    }
+    },
+    "delay_reasons": [
+      "This train is historically late (+27 min)",
+      "Delay already building up (+11 min)",
+      "Run frequency effect (+0 min)",
+      "Season effect (+0 min)"
+    ]
   }
   ```
 
@@ -276,7 +282,13 @@ from main import app  # Exposes ASGI app to Vercel
       "historical_avg_delay_this_train": 42.5,
       "season": "Winter",
       "run_frequency": "Daliy"
-    }
+    },
+    "delay_reasons": [
+      "This train is historically late (+27 min)",
+      "Delay already building up (+3 min)",
+      "Run frequency effect (+0 min)",
+      "Season effect (+0 min)"
+    ]
   }
   ```
 

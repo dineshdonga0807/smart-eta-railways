@@ -164,6 +164,77 @@ def _compute_prediction(current_delay: float, hist_avg: float, season: str, run_
     return round(max(0.0, pred_val), 1)
 
 
+def _format_delay_minutes(mins: float) -> str:
+    """Format delay contribution in minutes with explicit sign and integer rounding."""
+    r = int(round(mins))
+    if r == 0:
+        return "(+0 min)"
+    return f"({r:+d} min)"
+
+
+def _compute_delay_reasons(current_delay: float, hist_avg: float, season: str, run_freq: str) -> list[str]:
+    """
+    Calculate feature contributions using linear regression coefficients
+    and return human-readable delay reason labels sorted descending by magnitude.
+    """
+    features_input = pd.DataFrame([{
+        "current_delay": current_delay,
+        "historical_avg_delay_this_train": hist_avg,
+        "season": season,
+        "run_frequency": run_freq
+    }])
+
+    preprocessor = model.named_steps["preprocessor"]
+    regressor = model.named_steps["regressor"]
+
+    X_trans = preprocessor.transform(features_input)[0]
+    feature_names = preprocessor.get_feature_names_out()
+    coefs = regressor.coef_
+
+    curr_contrib = 0.0
+    hist_contrib = 0.0
+    season_contrib = 0.0
+    freq_contrib = 0.0
+
+    for name, val, coef in zip(feature_names, X_trans, coefs):
+        contrib = float(val * coef)
+        if "current_delay" in name:
+            curr_contrib += contrib
+        elif "historical_avg_delay_this_train" in name:
+            hist_contrib += contrib
+        elif "season" in name:
+            season_contrib += contrib
+        elif "run_frequency" in name:
+            freq_contrib += contrib
+
+    reasons = [
+        {
+            "name": "historical_avg",
+            "contribution": hist_contrib,
+            "label": f"This train is historically late {_format_delay_minutes(hist_contrib)}"
+        },
+        {
+            "name": "current_delay",
+            "contribution": curr_contrib,
+            "label": f"Delay already building up {_format_delay_minutes(curr_contrib)}"
+        },
+        {
+            "name": "run_frequency",
+            "contribution": freq_contrib,
+            "label": f"Run frequency effect {_format_delay_minutes(freq_contrib)}"
+        },
+        {
+            "name": "season",
+            "contribution": season_contrib,
+            "label": f"Season effect {_format_delay_minutes(season_contrib)}"
+        }
+    ]
+
+    # Sort descending by size of contribution (absolute magnitude)
+    reasons.sort(key=lambda x: abs(x["contribution"]), reverse=True)
+    return [r["label"] for r in reasons]
+
+
 # Pre-warm default predictions for all registered trains at startup
 def _warmup_cache():
     trains = get_trains_data()
@@ -176,6 +247,7 @@ def _warmup_cache():
             seas = str(prof.get("season", "Winter")).strip()
             freq = str(prof.get("run_frequency", "Daliy")).strip()
             pred = _compute_prediction(curr, hist, seas, freq)
+            reasons = _compute_delay_reasons(curr, hist, seas, freq)
             _DEFAULT_ETA_CACHE[t_no] = {
                 "train_number": t_no,
                 "train_name": prof.get("train_name"),
@@ -186,7 +258,8 @@ def _warmup_cache():
                     "historical_avg_delay_this_train": hist,
                     "season": seas,
                     "run_frequency": freq
-                }
+                },
+                "delay_reasons": reasons
             }
 
 try:
@@ -251,6 +324,14 @@ def get_eta(
 ):
     train_no_str = str(train_number).strip()
 
+    # Support both FastAPI dependency injection and direct function calls
+    if not isinstance(current_delay, (int, float, str)) or current_delay is None:
+        current_delay = None
+    if not isinstance(season, str):
+        season = None
+    if not isinstance(run_frequency, str):
+        run_frequency = None
+
     # Fast-path: return pre-warmed default forecast if no overrides are provided
     if current_delay is None and season is None and run_frequency is None:
         if train_no_str in _DEFAULT_ETA_CACHE:
@@ -277,6 +358,7 @@ def get_eta(
 
     try:
         predicted_delay = _compute_prediction(used_current_delay, used_hist_avg, used_season, used_run_freq)
+        delay_reasons = _compute_delay_reasons(used_current_delay, used_hist_avg, used_season, used_run_freq)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -293,7 +375,8 @@ def get_eta(
             "historical_avg_delay_this_train": used_hist_avg,
             "season": used_season,
             "run_frequency": used_run_freq
-        }
+        },
+        "delay_reasons": delay_reasons
     }
 
     return JSONResponse(
